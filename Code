@@ -57,6 +57,8 @@ LRgrid <- expand.grid(parameter = c(0.001, 0.001, 0.1, 1, 10, 100, 1000))
 LR <- train(x = predictors_train_preop, y = train$outcome, data = train, method = "glm", metric = "ROC", trControl = train_control, tuneGrid = LRgrid)
 
 #Evaluate pre-op models on test set
+library(pROC)
+
 XGB_pred <- predict(XGB, as.matrix(predictors_test_preop))
 auc(test$outcome, XGB_pred)
 ci.auc(test$outcome, XGB_pred)
@@ -92,3 +94,212 @@ auc(test$outcome, LR_pred)
 ci.auc(test$outcome, LR_pred)
 LR_pred_0.5 <- ifelse(LR_pred > 0.5,1,0)
 confusionMatrix(as.factor(test$outcome), as.factor(LR_pred_0.5))
+
+#XGBoost selected as best performing model
+#Train XGBoost on intra-operative and post-operative data
+XGB_preop <- XGB
+XGB_intraop <- train(x = as.matrix(predictors_train_intraop), y = train$outcome, data = train, method = "xgbTree", metric = "ROC", trControl = train_control, tuneGrid = XGBgrid)
+XGB_postop <- train(x = as.matrix(predictors_train_postop), y = train$outcome, data = train, method = "xgbTree", metric = "ROC", trControl = train_control, tuneGrid = XGBgrid)
+
+#Generate ROC curves
+library(ROCR)
+XGB_preop_pred <- predict(XGB_preop, as.matrix(predictors_test_preop))
+XGB_preop_perf <- prediction(XGB_preop_pred, test$outcome)
+XGB_preop_perf <- performance(XGB_preop_pred, "tpr", "fpr")
+
+XGB_intraop_pred <- predict(XGB_intraop, as.matrix(predictors_test_intraop))
+XGB_intraop_perf <- prediction(XGB_intraop_pred, test$outcome)
+XGB_intraop_perf <- performance(XGB_intraop_pred, "tpr", "fpr")
+
+XGB_postop_pred <- predict(XGB_postop, as.matrix(predictors_test_postop))
+XGB_postop_perf <- prediction(XGB_postop_pred, test$outcome)
+XGB_postop_perf <- performance(XGB_postop_pred, "tpr", "fpr")
+
+plot(XGB_preop_perf)
+plot(XGB_intraop_perf, add = TRUE, col = 'blue')
+plot(XGB_postop_perf, add = TRUE, col = 'orange')
+abline(a=0,b=1)
+
+#Generate calibration plots
+library(rpart)
+calibrate.plot(test$outcome, XGB_preop_pred)
+calibrate.plot(test$outcome, XGB_intraop_pred)
+calibrate.plot(test$outcome, XGB_intraop_pred)
+
+#Calculate Brier Scores
+library(DescTools)
+BrierScore(XGB_preop_pred, test$outcome)
+BrierScore(XGB_intraop_pred, test$outcome)
+BrierScore(XGB_postop_pred, test$outcome)
+
+#Calculate variable importance scores for top 10 predictors
+importance_matrix <- xgb.importance(names(predictors_test_postop), model = XGB_postop)
+xgb.plot.importance(importance_matrix, top_n = 10)
+
+#Subgroup analysis based on age
+test_under70 <- test[test$AGE<70, ]
+test_over70 <- test[test$AGE>70, ]
+predictors_test_under70 <- test_under70 %>% select(REGIONID, CENTERID, PHYSICIANID, SURGYEAR, SURGMONTH, SURGWEEKDAY, PRIMARYINSURER, TRANSFER, SYMPTOMATIC, AGE, GENDER, ETHNICITY, RACE, BMI, PREOP_SMOKING, HTN, DIABETES, CAD, PRIOR_CHF, COPD, DIALYSIS, STRESS, LIVINGSTATUS, PREOP_AMBUL, HEMO_L, CREATININE_MOL, PRIOR_IPSICEA, PRIOR_IPSICAS, PRIOR_BYPASS, ANEURREP, PTASTENT, PREOP_ASA, PRIOR_MAJAMP, PREOP_P2Y, PREOP_STATIN, PREOP_BETABLOCKER, PREOP_ACE, PREOP_ANTICOAG, RADIATION, ANATOMHIGHRISK, IPSI_STENOSIS, URGENCY, ASACLASS)
+predictors_test_over70 <- test_over70 %>% select(REGIONID, CENTERID, PHYSICIANID, SURGYEAR, SURGMONTH, SURGWEEKDAY, PRIMARYINSURER, TRANSFER, SYMPTOMATIC, AGE, GENDER, ETHNICITY, RACE, BMI, PREOP_SMOKING, HTN, DIABETES, CAD, PRIOR_CHF, COPD, DIALYSIS, STRESS, LIVINGSTATUS, PREOP_AMBUL, HEMO_L, CREATININE_MOL, PRIOR_IPSICEA, PRIOR_IPSICAS, PRIOR_BYPASS, ANEURREP, PTASTENT, PREOP_ASA, PRIOR_MAJAMP, PREOP_P2Y, PREOP_STATIN, PREOP_BETABLOCKER, PREOP_ACE, PREOP_ANTICOAG, RADIATION, ANATOMHIGHRISK, IPSI_STENOSIS, URGENCY, ASACLASS)
+
+pred_under70 <- predict(XGB_preop, as.matrix(predictors_test_under70))
+auc(test_under70$outcome, pred_under70)
+ci.auc(test_under70$outcome, pred_under70)
+
+pred_over70 <- predict(XGB_preop, as.matrix(predictors_test_over70))
+auc(test_under70$outcome, pred_over70)
+ci.auc(test_under70$outcome, pred_over70)
+
+perf_under70 <- prediction(pred_under70, test_under70$outcome)
+perf_under70 <- performance(perf_under70, "tpr", "fpr")
+
+perf_over70 <- prediction(pred_over70, test_over70$outcome)
+perf_over70 <- performance(perf_over70, "tpr", "fpr")
+
+plot(perf_under70)
+plot(perf_over70, add = TRUE, col = 'blue')
+abline(a=0,b=1)
+
+#Subgroup analysis based on sex
+test_male <- test[test$GENDER=1, ]
+test_female <- test[test$GENDER=0, ]
+predictors_test_male <- test_male %>% select(REGIONID, CENTERID, PHYSICIANID, SURGYEAR, SURGMONTH, SURGWEEKDAY, PRIMARYINSURER, TRANSFER, SYMPTOMATIC, AGE, GENDER, ETHNICITY, RACE, BMI, PREOP_SMOKING, HTN, DIABETES, CAD, PRIOR_CHF, COPD, DIALYSIS, STRESS, LIVINGSTATUS, PREOP_AMBUL, HEMO_L, CREATININE_MOL, PRIOR_IPSICEA, PRIOR_IPSICAS, PRIOR_BYPASS, ANEURREP, PTASTENT, PREOP_ASA, PRIOR_MAJAMP, PREOP_P2Y, PREOP_STATIN, PREOP_BETABLOCKER, PREOP_ACE, PREOP_ANTICOAG, RADIATION, ANATOMHIGHRISK, IPSI_STENOSIS, URGENCY, ASACLASS)
+predictors_test_female <- test_female %>% select(REGIONID, CENTERID, PHYSICIANID, SURGYEAR, SURGMONTH, SURGWEEKDAY, PRIMARYINSURER, TRANSFER, SYMPTOMATIC, AGE, GENDER, ETHNICITY, RACE, BMI, PREOP_SMOKING, HTN, DIABETES, CAD, PRIOR_CHF, COPD, DIALYSIS, STRESS, LIVINGSTATUS, PREOP_AMBUL, HEMO_L, CREATININE_MOL, PRIOR_IPSICEA, PRIOR_IPSICAS, PRIOR_BYPASS, ANEURREP, PTASTENT, PREOP_ASA, PRIOR_MAJAMP, PREOP_P2Y, PREOP_STATIN, PREOP_BETABLOCKER, PREOP_ACE, PREOP_ANTICOAG, RADIATION, ANATOMHIGHRISK, IPSI_STENOSIS, URGENCY, ASACLASS)
+
+pred_male <- predict(XGB_preop, as.matrix(predictors_test_male))
+auc(test_male$outcome, pred_male)
+ci.auc(test_male$outcome, pred_male)
+
+pred_female <- predict(XGB_preop, as.matrix(predictors_test_female))
+auc(test_female$outcome, pred_female)
+ci.auc(test_female$outcome, pred_female)
+
+perf_male <- prediction(pred_male, test_male$outcome)
+perf_male <- performance(perf_male, "tpr", "fpr")
+
+perf_female <- prediction(pred_female, test_female$outcome)
+perf_female <- performance(perf_female, "tpr", "fpr")
+
+plot(perf_male)
+plot(perf_female, add = TRUE, col = 'blue')
+abline(a=0,b=1)
+
+#Subgroup analysis based on race
+test_white <- test[test$RACE=5, ]
+test_nonwhite <- test[test$RACE!=5, ]
+predictors_test_white <- test_white %>% select(REGIONID, CENTERID, PHYSICIANID, SURGYEAR, SURGMONTH, SURGWEEKDAY, PRIMARYINSURER, TRANSFER, SYMPTOMATIC, AGE, GENDER, ETHNICITY, RACE, BMI, PREOP_SMOKING, HTN, DIABETES, CAD, PRIOR_CHF, COPD, DIALYSIS, STRESS, LIVINGSTATUS, PREOP_AMBUL, HEMO_L, CREATININE_MOL, PRIOR_IPSICEA, PRIOR_IPSICAS, PRIOR_BYPASS, ANEURREP, PTASTENT, PREOP_ASA, PRIOR_MAJAMP, PREOP_P2Y, PREOP_STATIN, PREOP_BETABLOCKER, PREOP_ACE, PREOP_ANTICOAG, RADIATION, ANATOMHIGHRISK, IPSI_STENOSIS, URGENCY, ASACLASS)
+predictors_test_nonwhite <- test_nonwhite %>% select(REGIONID, CENTERID, PHYSICIANID, SURGYEAR, SURGMONTH, SURGWEEKDAY, PRIMARYINSURER, TRANSFER, SYMPTOMATIC, AGE, GENDER, ETHNICITY, RACE, BMI, PREOP_SMOKING, HTN, DIABETES, CAD, PRIOR_CHF, COPD, DIALYSIS, STRESS, LIVINGSTATUS, PREOP_AMBUL, HEMO_L, CREATININE_MOL, PRIOR_IPSICEA, PRIOR_IPSICAS, PRIOR_BYPASS, ANEURREP, PTASTENT, PREOP_ASA, PRIOR_MAJAMP, PREOP_P2Y, PREOP_STATIN, PREOP_BETABLOCKER, PREOP_ACE, PREOP_ANTICOAG, RADIATION, ANATOMHIGHRISK, IPSI_STENOSIS, URGENCY, ASACLASS)
+
+pred_white <- predict(XGB_preop, as.matrix(predictors_test_white))
+auc(test_white$outcome, pred_white)
+ci.auc(test_white$outcome, pred_white)
+
+pred_nonwhite <- predict(XGB_preop, as.matrix(predictors_test_nonwhite))
+auc(test_nonwhite$outcome, pred_nonwhite)
+ci.auc(test_nonwhite$outcome, pred_nonwhite)
+
+perf_white <- prediction(pred_white, test_white$outcome)
+perf_white <- performance(perf_white, "tpr", "fpr")
+
+perf_nonwhite <- prediction(pred_nonwhite, test_nonwhite$outcome)
+perf_nonwhite <- performance(perf_nonwhite, "tpr", "fpr")
+
+plot(perf_white)
+plot(perf_nonwhite, add = TRUE, col = 'blue')
+abline(a=0,b=1)
+
+#Subgroup analysis based on ethinicity
+test_hispanic <- test[test$ETHNICITY=1, ]
+test_nonhispanic <- test[test$ETHNICITY=0, ]
+predictors_test_hispanic <- test_hispanic %>% select(REGIONID, CENTERID, PHYSICIANID, SURGYEAR, SURGMONTH, SURGWEEKDAY, PRIMARYINSURER, TRANSFER, SYMPTOMATIC, AGE, GENDER, ETHNICITY, RACE, BMI, PREOP_SMOKING, HTN, DIABETES, CAD, PRIOR_CHF, COPD, DIALYSIS, STRESS, LIVINGSTATUS, PREOP_AMBUL, HEMO_L, CREATININE_MOL, PRIOR_IPSICEA, PRIOR_IPSICAS, PRIOR_BYPASS, ANEURREP, PTASTENT, PREOP_ASA, PRIOR_MAJAMP, PREOP_P2Y, PREOP_STATIN, PREOP_BETABLOCKER, PREOP_ACE, PREOP_ANTICOAG, RADIATION, ANATOMHIGHRISK, IPSI_STENOSIS, URGENCY, ASACLASS)
+predictors_test_nonhispanic <- test_nonhispanic %>% select(REGIONID, CENTERID, PHYSICIANID, SURGYEAR, SURGMONTH, SURGWEEKDAY, PRIMARYINSURER, TRANSFER, SYMPTOMATIC, AGE, GENDER, ETHNICITY, RACE, BMI, PREOP_SMOKING, HTN, DIABETES, CAD, PRIOR_CHF, COPD, DIALYSIS, STRESS, LIVINGSTATUS, PREOP_AMBUL, HEMO_L, CREATININE_MOL, PRIOR_IPSICEA, PRIOR_IPSICAS, PRIOR_BYPASS, ANEURREP, PTASTENT, PREOP_ASA, PRIOR_MAJAMP, PREOP_P2Y, PREOP_STATIN, PREOP_BETABLOCKER, PREOP_ACE, PREOP_ANTICOAG, RADIATION, ANATOMHIGHRISK, IPSI_STENOSIS, URGENCY, ASACLASS)
+
+pred_hispanic <- predict(XGB_preop, as.matrix(predictors_test_hispanic))
+auc(test_hispanic$outcome, pred_hispanic)
+ci.auc(test_hispanic$outcome, pred_hispanic)
+
+pred_nonhispanic <- predict(XGB_preop, as.matrix(predictors_test_nonhispanic))
+auc(test_nonhispanic$outcome, pred_nonhispanic)
+ci.auc(test_nonhispanic$outcome, pred_nonhispanic)
+
+perf_hispanic <- prediction(pred_hispanic, test_hispanic$outcome)
+perf_hispanic <- performance(perf_hispanic, "tpr", "fpr")
+
+perf_nonhispanic <- prediction(pred_nonhispanic, test_nonhispanic$outcome)
+perf_nonhispanic <- performance(perf_nonhispanic, "tpr", "fpr")
+
+plot(perf_hispanic)
+plot(perf_nonhispanic, add = TRUE, col = 'blue')
+abline(a=0,b=1)
+
+#Subgroup analysis based on insurance status
+test_uninsured <- test[test$PRIMARYINSURER=6, ]
+test_insured <- test[test$PRIMARYINSURER!=6, ]
+predictors_test_uninsured <- test_uninsured %>% select(REGIONID, CENTERID, PHYSICIANID, SURGYEAR, SURGMONTH, SURGWEEKDAY, PRIMARYINSURER, TRANSFER, SYMPTOMATIC, AGE, GENDER, ETHNICITY, RACE, BMI, PREOP_SMOKING, HTN, DIABETES, CAD, PRIOR_CHF, COPD, DIALYSIS, STRESS, LIVINGSTATUS, PREOP_AMBUL, HEMO_L, CREATININE_MOL, PRIOR_IPSICEA, PRIOR_IPSICAS, PRIOR_BYPASS, ANEURREP, PTASTENT, PREOP_ASA, PRIOR_MAJAMP, PREOP_P2Y, PREOP_STATIN, PREOP_BETABLOCKER, PREOP_ACE, PREOP_ANTICOAG, RADIATION, ANATOMHIGHRISK, IPSI_STENOSIS, URGENCY, ASACLASS)
+predictors_test_insured <- test_insured %>% select(REGIONID, CENTERID, PHYSICIANID, SURGYEAR, SURGMONTH, SURGWEEKDAY, PRIMARYINSURER, TRANSFER, SYMPTOMATIC, AGE, GENDER, ETHNICITY, RACE, BMI, PREOP_SMOKING, HTN, DIABETES, CAD, PRIOR_CHF, COPD, DIALYSIS, STRESS, LIVINGSTATUS, PREOP_AMBUL, HEMO_L, CREATININE_MOL, PRIOR_IPSICEA, PRIOR_IPSICAS, PRIOR_BYPASS, ANEURREP, PTASTENT, PREOP_ASA, PRIOR_MAJAMP, PREOP_P2Y, PREOP_STATIN, PREOP_BETABLOCKER, PREOP_ACE, PREOP_ANTICOAG, RADIATION, ANATOMHIGHRISK, IPSI_STENOSIS, URGENCY, ASACLASS)
+
+pred_uninsured <- predict(XGB_preop, as.matrix(predictors_test_uninsured))
+auc(test_uninsured$outcome, pred_uninsured)
+ci.auc(test_uninsured$outcome, pred_uninsured)
+
+pred_insured <- predict(XGB_preop, as.matrix(predictors_test_insured))
+auc(test_insured$outcome, pred_insured)
+ci.auc(test_insured$outcome, pred_insured)
+
+perf_uninsured <- prediction(pred_uninsured, test_uninsured$outcome)
+perf_uninsured <- performance(perf_uninsured, "tpr", "fpr")
+
+perf_insured <- prediction(pred_insured, test_insured$outcome)
+perf_insured <- performance(perf_insured, "tpr", "fpr")
+
+plot(perf_uninsured)
+plot(perf_insured, add = TRUE, col = 'blue')
+abline(a=0,b=1)
+
+#Subgroup analysis based on symptom status
+test_symptomatic <- test[test$SYMPTOMATIC=1, ]
+test_asymptomatic <- test[test$SYMPTOMATIC=0, ]
+predictors_test_symptomatic <- test_symptomatic %>% select(REGIONID, CENTERID, PHYSICIANID, SURGYEAR, SURGMONTH, SURGWEEKDAY, PRIMARYINSURER, TRANSFER, SYMPTOMATIC, AGE, GENDER, ETHNICITY, RACE, BMI, PREOP_SMOKING, HTN, DIABETES, CAD, PRIOR_CHF, COPD, DIALYSIS, STRESS, LIVINGSTATUS, PREOP_AMBUL, HEMO_L, CREATININE_MOL, PRIOR_IPSICEA, PRIOR_IPSICAS, PRIOR_BYPASS, ANEURREP, PTASTENT, PREOP_ASA, PRIOR_MAJAMP, PREOP_P2Y, PREOP_STATIN, PREOP_BETABLOCKER, PREOP_ACE, PREOP_ANTICOAG, RADIATION, ANATOMHIGHRISK, IPSI_STENOSIS, URGENCY, ASACLASS)
+predictors_test_asymptomatic <- test_asymptomatic %>% select(REGIONID, CENTERID, PHYSICIANID, SURGYEAR, SURGMONTH, SURGWEEKDAY, PRIMARYINSURER, TRANSFER, SYMPTOMATIC, AGE, GENDER, ETHNICITY, RACE, BMI, PREOP_SMOKING, HTN, DIABETES, CAD, PRIOR_CHF, COPD, DIALYSIS, STRESS, LIVINGSTATUS, PREOP_AMBUL, HEMO_L, CREATININE_MOL, PRIOR_IPSICEA, PRIOR_IPSICAS, PRIOR_BYPASS, ANEURREP, PTASTENT, PREOP_ASA, PRIOR_MAJAMP, PREOP_P2Y, PREOP_STATIN, PREOP_BETABLOCKER, PREOP_ACE, PREOP_ANTICOAG, RADIATION, ANATOMHIGHRISK, IPSI_STENOSIS, URGENCY, ASACLASS)
+
+pred_symptomatic <- predict(XGB_preop, as.matrix(predictors_test_symptomatic))
+auc(test_symptomatic$outcome, pred_symptomatic)
+ci.auc(test_symptomatic$outcome, pred_symptomatic)
+
+pred_asymptomatic <- predict(XGB_preop, as.matrix(predictors_test_asymptomatic))
+auc(test_asymptomatic$outcome, pred_asymptomatic)
+ci.auc(test_asymptomatic$outcome, pred_asymptomatic)
+
+perf_symptomatic <- prediction(pred_symptomatic, test_symptomatic$outcome)
+perf_symptomatic <- performance(perf_symptomatic, "tpr", "fpr")
+
+perf_asymptomatic <- prediction(pred_asymptomatic, test_asymptomatic$outcome)
+perf_asymptomatic <- performance(perf_asymptomatic, "tpr", "fpr")
+
+plot(perf_symptomatic)
+plot(perf_asymptomatic, add = TRUE, col = 'blue')
+abline(a=0,b=1)
+
+#Subgroup analysis based on urgency of surgery
+test_urgent <- test[test$URGENCY!=1, ]
+test_elective <- test[test$URGENCY=1, ]
+predictors_test_urgent <- test_urgent %>% select(REGIONID, CENTERID, PHYSICIANID, SURGYEAR, SURGMONTH, SURGWEEKDAY, PRIMARYINSURER, TRANSFER, SYMPTOMATIC, AGE, GENDER, ETHNICITY, RACE, BMI, PREOP_SMOKING, HTN, DIABETES, CAD, PRIOR_CHF, COPD, DIALYSIS, STRESS, LIVINGSTATUS, PREOP_AMBUL, HEMO_L, CREATININE_MOL, PRIOR_IPSICEA, PRIOR_IPSICAS, PRIOR_BYPASS, ANEURREP, PTASTENT, PREOP_ASA, PRIOR_MAJAMP, PREOP_P2Y, PREOP_STATIN, PREOP_BETABLOCKER, PREOP_ACE, PREOP_ANTICOAG, RADIATION, ANATOMHIGHRISK, IPSI_STENOSIS, URGENCY, ASACLASS)
+predictors_test_elective <- test_elective %>% select(REGIONID, CENTERID, PHYSICIANID, SURGYEAR, SURGMONTH, SURGWEEKDAY, PRIMARYINSURER, TRANSFER, SYMPTOMATIC, AGE, GENDER, ETHNICITY, RACE, BMI, PREOP_SMOKING, HTN, DIABETES, CAD, PRIOR_CHF, COPD, DIALYSIS, STRESS, LIVINGSTATUS, PREOP_AMBUL, HEMO_L, CREATININE_MOL, PRIOR_IPSICEA, PRIOR_IPSICAS, PRIOR_BYPASS, ANEURREP, PTASTENT, PREOP_ASA, PRIOR_MAJAMP, PREOP_P2Y, PREOP_STATIN, PREOP_BETABLOCKER, PREOP_ACE, PREOP_ANTICOAG, RADIATION, ANATOMHIGHRISK, IPSI_STENOSIS, URGENCY, ASACLASS)
+
+pred_urgent <- predict(XGB_preop, as.matrix(predictors_test_urgent))
+auc(test_urgent$outcome, pred_urgent)
+ci.auc(test_urgent$outcome, pred_urgent)
+
+pred_elective <- predict(XGB_preop, as.matrix(predictors_test_elective))
+auc(test_elective$outcome, pred_elective)
+ci.auc(test_elective$outcome, pred_elective)
+
+perf_urgent <- prediction(pred_urgent, test_urgent$outcome)
+perf_urgent <- performance(perf_urgent, "tpr", "fpr")
+
+perf_elective <- prediction(pred_elective, test_elective$outcome)
+perf_elective <- performance(perf_elective, "tpr", "fpr")
+
+plot(perf_urgent)
+plot(perf_elective, add = TRUE, col = 'blue')
+abline(a=0,b=1)
