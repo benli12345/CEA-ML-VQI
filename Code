@@ -33,7 +33,7 @@ library(nnet)
 train_control <- trainControl(method = "cv", number = 10) #10-fold cross-validation
 
 #Train XGBoost
-XGBgrid <- expand.grid(max_depth = c(3,5,7), nrounds = (1:10)*50, eta = 0.3, gamma = 0, subsample = 1, min_child_weight = 1, colsample_bytree = 0.6) #XGBoost grid search for hyperparameters
+XGBgrid <- expand.grid(max_depth = c(2,3,4,5,6,7,8,9), nrounds = (1:10)*50, eta = c(0.4,0.3,0.2,0.1,0.05,0.01,0.001), gamma = c(0,0.1,1,1.5,2), subsample = c(0.5,0.6,0.7,0.8,0.9,1), min_child_weight = c(1,3,5,7,10), colsample_bytree = c(0.5,0.6,0.7,0.8,0.9,1) #XGBoost grid search for hyperparameters
 XGB <- train(x = as.matrix(predictors_train_preop), y = train$outcome, data = train, method = "xgbTree", metric = "ROC", trControl = train_control, tuneGrid = XGBgrid)
 
 #Train random forest
