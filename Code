@@ -105,15 +105,15 @@ XGB_postop <- train(x = as.matrix(predictors_train_postop), y = train$outcome, d
 library(ROCR)
 XGB_preop_pred <- predict(XGB_preop, as.matrix(predictors_test_preop))
 XGB_preop_perf <- prediction(XGB_preop_pred, test$outcome)
-XGB_preop_perf <- performance(XGB_preop_pred, "tpr", "fpr")
+XGB_preop_perf <- performance(XGB_preop_perf, "tpr", "fpr")
 
 XGB_intraop_pred <- predict(XGB_intraop, as.matrix(predictors_test_intraop))
 XGB_intraop_perf <- prediction(XGB_intraop_pred, test$outcome)
-XGB_intraop_perf <- performance(XGB_intraop_pred, "tpr", "fpr")
+XGB_intraop_perf <- performance(XGB_intraop_perf, "tpr", "fpr")
 
 XGB_postop_pred <- predict(XGB_postop, as.matrix(predictors_test_postop))
 XGB_postop_perf <- prediction(XGB_postop_pred, test$outcome)
-XGB_postop_perf <- performance(XGB_postop_pred, "tpr", "fpr")
+XGB_postop_perf <- performance(XGB_postop_perf, "tpr", "fpr")
 
 plot(XGB_preop_perf)
 plot(XGB_intraop_perf, add = TRUE, col = 'blue')
