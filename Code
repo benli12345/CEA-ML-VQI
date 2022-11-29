@@ -121,7 +121,7 @@ plot(XGB_postop_perf, add = TRUE, col = 'orange')
 abline(a=0,b=1)
 
 #Generate calibration plots
-library(rpart)
+library(gbm)
 calibrate.plot(test$outcome, XGB_preop_pred)
 calibrate.plot(test$outcome, XGB_intraop_pred)
 calibrate.plot(test$outcome, XGB_intraop_pred)
