@@ -1,5 +1,5 @@
 #R version 4.2.1
-#Load VQI CEA data (available with approval through SVS PSO)
+#Load VQI CEA data (available with approval through SVS PSO https://www.vqi.org/data-analysis/)
 library(readr)
 data <- read_csv("data.csv")
 
