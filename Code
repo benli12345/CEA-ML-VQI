@@ -53,8 +53,7 @@ NNETgrid <- expand.grid(size = seq(1,10,by=1), decay = seq(0.1,0.5,by=0.1))
 NNET <- train(x = predictors_train_preop, y = train$outcome, data = train, method = "nnet", metric = "ROC", trControl = train_control, tuneGrid = NNETgrid)
 
 #Train logistic regression
-LRgrid <- expand.grid(parameter = c(0.001, 0.001, 0.1, 1, 10, 100, 1000))
-LR <- train(x = predictors_train_preop, y = train$outcome, data = train, method = "glm", metric = "ROC", trControl = train_control, tuneGrid = LRgrid)
+LR <- train(x = predictors_train_preop, y = train$outcome, data = train, method = "glm", metric = "ROC", trControl = train_control)
 
 #Evaluate pre-op models on test set
 library(pROC)
