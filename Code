@@ -302,3 +302,47 @@ perf_elective <- performance(perf_elective, "tpr", "fpr")
 plot(perf_urgent)
 plot(perf_elective, add = TRUE, col = 'blue')
 abline(a=0,b=1)
+
+#Train and evaluate XGBoost for predicting secondary outcomes
+
+XGB_stroke_preop <- xgboost(data = as.matrix(predictors_train_preop), label = as.numeric(train$stroke), nrounds = 200, verbose = TRUE, objective = 'binary:logistic', eval_metric = 'auc', max_depth = 3, eta = 0.3, gamma = 0, colsample_bytree = 0.6, min_child_weight = 1, subsample = 1) #hyperparameters chosen based on above grid search and cross validation
+XGB_stroke_pred_preop <- predict(XGB_stroke_preop, as.matrix(predictors_test_preop))
+auc(test$stroke, XGB_stroke_pred_preop)
+ci.auc(test$stroke, XGB_stroke_pred_preop)
+XGB_stroke_pred_preop_0.5 <- ifelse(XGB_stroke_pred_preop > 0.5,1,0)
+confusionMatrix(as.factor(test$stroke), as.factor(XGB_stroke_pred_preop_0.5))
+
+XGB_stroke_intraop <- xgboost(data = as.matrix(predictors_train_intraop), label = as.numeric(train$stroke), nrounds = 200, verbose = TRUE, objective = 'binary:logistic', eval_metric = 'auc', max_depth = 3, eta = 0.3, gamma = 0, colsample_bytree = 0.6, min_child_weight = 1, subsample = 1)
+XGB_stroke_pred_intraop <- predict(XGB_stroke_intraop, as.matrix(predictors_test_intraop))
+auc(test$stroke, XGB_stroke_pred_intraop)
+ci.auc(test$stroke, XGB_stroke_pred_intraop)
+XGB_stroke_pred_intraop_0.5 <- ifelse(XGB_stroke_pred_intraop > 0.5,1,0)
+confusionMatrix(as.factor(test$stroke), as.factor(XGB_stroke_pred_intraop_0.5))
+
+XGB_stroke_postop <- xgboost(data = as.matrix(predictors_train_postop), label = as.numeric(train$stroke), nrounds = 200, verbose = TRUE, objective = 'binary:logistic', eval_metric = 'auc', max_depth = 3, eta = 0.3, gamma = 0, colsample_bytree = 0.6, min_child_weight = 1, subsample = 1)
+XGB_stroke_pred_postop <- predict(XGB_stroke_postop, as.matrix(predictors_test_postop))
+auc(test$stroke, XGB_stroke_pred_postop)
+ci.auc(test$stroke, XGB_stroke_pred_postop)
+XGB_stroke_pred_postop_0.5 <- ifelse(XGB_stroke_pred_postop > 0.5,1,0)
+confusionMatrix(as.factor(test$stroke), as.factor(XGB_stroke_pred_postop_0.5))
+
+XGB_death_preop <- xgboost(data = as.matrix(predictors_train_preop), label = as.numeric(train$death), nrounds = 200, verbose = TRUE, objective = 'binary:logistic', eval_metric = 'auc', max_depth = 3, eta = 0.3, gamma = 0, colsample_bytree = 0.6, min_child_weight = 1, subsample = 1)
+XGB_death_pred_preop <- predict(XGB_death_preop, as.matrix(predictors_test_preop))
+auc(test$death, XGB_death_pred_preop)
+ci.auc(test$death, XGB_death_pred_preop)
+XGB_death_pred_preop_0.5 <- ifelse(XGB_death_pred_preop > 0.5,1,0)
+confusionMatrix(as.factor(test$death), as.factor(XGB_death_pred_preop_0.5))
+
+XGB_death_intraop <- xgboost(data = as.matrix(predictors_train_intraop), label = as.numeric(train$death), nrounds = 200, verbose = TRUE, objective = 'binary:logistic', eval_metric = 'auc', max_depth = 3, eta = 0.3, gamma = 0, colsample_bytree = 0.6, min_child_weight = 1, subsample = 1)
+XGB_death_pred_intraop <- predict(XGB_death_intraop, as.matrix(predictors_test_intraop))
+auc(test$death, XGB_death_pred_intraop)
+ci.auc(test$death, XGB_death_pred_intraop)
+XGB_death_pred_intraop_0.5 <- ifelse(XGB_death_pred_intraop > 0.5,1,0)
+confusionMatrix(as.factor(test$death), as.factor(XGB_death_pred_intraop_0.5))
+
+XGB_death_postop <- xgboost(data = as.matrix(predictors_train_postop), label = as.numeric(train$death), nrounds = 200, verbose = TRUE, objective = 'binary:logistic', eval_metric = 'auc', max_depth = 3, eta = 0.3, gamma = 0, colsample_bytree = 0.6, min_child_weight = 1, subsample = 1)
+XGB_death_pred_postop <- predict(XGB_death_postop, as.matrix(predictors_test_postop))
+auc(test$death, XGB_death_pred_postop)
+ci.auc(test$death, XGB_stroke_pred_postop)
+XGB_death_pred_postop_0.5 <- ifelse(XGB_death_pred_postop > 0.5,1,0)
+confusionMatrix(as.factor(test$death), as.factor(XGB_death_pred_postop_0.5))
