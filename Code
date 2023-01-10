@@ -45,7 +45,7 @@ NBgrid <- expand.grid(usekernel = c(TRUE, FALSE), fL = 0:5, adjust = seq(0,5,by=
 NB <- train(x = predictors_train_preop, y = as.factor(train$outcome), data = train, method = "naive_bayes", metric = "ROC", trControl = train_control, tuneGrid = NBgrid)
 
 #Train support vector machine
-SVMgrid <- expand.grid(C = c(0.01, 0.1))
+SVMgrid <- expand.grid(C = c(0.001, 0.01, 0.1, 1, 10, 100, 10000))
 SVM <- train(x = predictors_train_preop, y = train$outcome, data = train, method = "svmRadial", metric = "ROC", trControl = train_control, tuneGrid = SVMgrid)
 
 #Train artificial neural network
@@ -53,7 +53,8 @@ NNETgrid <- expand.grid(size = seq(1,10,by=1), decay = seq(0.1,0.5,by=0.1))
 NNET <- train(x = predictors_train_preop, y = train$outcome, data = train, method = "nnet", metric = "ROC", trControl = train_control, tuneGrid = NNETgrid)
 
 #Train logistic regression
-LR <- train(x = predictors_train_preop, y = train$outcome, data = train, method = "glm", metric = "ROC", trControl = train_control, family = "binomial")
+LRgrid <- expand.grid(C = c(0.001, 0.01, 0.1, 1, 10, 100, 10000))
+LR <- train(x = predictors_train_preop, y = train$outcome, data = train, method = "glm", metric = "ROC", trControl = train_control, tuneGrid = LRgrid, family = "binomial")
 
 #Evaluate pre-op models on test set
 library(pROC)
